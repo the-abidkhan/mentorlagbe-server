@@ -5,6 +5,8 @@ import dotenv from "dotenv";
 import { toNodeHandler } from "better-auth/node";
 import { connectDB } from "./config/db.js";
 import { createAuth } from "./config/auth.js";
+import tuitionRoutes from "./routes/tuitionRoutes.js";
+import applicationRoutes from "./routes/applicationRoutes.js";
 
 dotenv.config();
 
@@ -41,6 +43,11 @@ async function startServer() {
 
     // JSON middleware
     app.use(express.json());
+
+     // Application routes
+    app.use("/api/applications", applicationRoutes);
+
+    app.use("/api/tuitions", tuitionRoutes);
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

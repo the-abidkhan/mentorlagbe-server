@@ -1,12 +1,14 @@
-
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
+import { jwt } from "better-auth/plugins";
 import { connectDB } from "./db.js";
 
 export async function createAuth() {
   const database = await connectDB();
 
   return betterAuth({
+    baseURL: process.env.BETTER_AUTH_URL,
+
     database: mongodbAdapter(database),
 
     emailAndPassword: {
@@ -42,5 +44,18 @@ export async function createAuth() {
         },
       },
     },
+
+    plugins: [
+      jwt({
+        jwt: {
+          definePayload: ({ user }) => ({
+            id: user.id,
+            email: user.email,
+            role: user.role,
+          }),
+        },
+      }),
+    ],
   });
 }
+
