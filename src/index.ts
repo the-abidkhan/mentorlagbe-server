@@ -1,7 +1,10 @@
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { connectDB } from "./config/db";
+import { toNodeHandler } from "better-auth/node";
+import { connectDB } from "./config/db.js";
+import { createAuth } from "./config/auth.js";
 
 dotenv.config();
 
@@ -19,21 +22,33 @@ app.use(
   })
 );
 
-app.use(express.json());
-
 const PORT = process.env.PORT || 5000;
 
 app.get("/", (_req, res) => {
-  res.status(200).json({ message: "MentorLagbe Server is Running!" });
+  res.status(200).json({
+    message: "MentorLagbe Server is Running!",
+  });
 });
 
-connectDB()
-  .then(() => {
+async function startServer() {
+  try {
+    await connectDB();
+
+    const auth = await createAuth();
+
+    // BetterAuth routes
+    app.all("/api/auth/*splat", toNodeHandler(auth));
+
+    // JSON middleware
+    app.use(express.json());
+
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
-  })
-  .catch((err) => {
-    console.error("Failed to start server:", err);
+  } catch (error) {
+    console.error("Failed to start server:", error);
     process.exit(1);
-  });
+  }
+}
+
+startServer();
