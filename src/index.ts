@@ -7,6 +7,7 @@ import { connectDB } from "./config/db.js";
 import { createAuth } from "./config/auth.js";
 import tuitionRoutes from "./routes/tuitionRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 dotenv.config();
 
@@ -46,6 +47,8 @@ async function startServer() {
 
      // Application routes
     app.use("/api/applications", applicationRoutes);
+
+    app.use("/api/admin", adminRoutes);
 
     app.use("/api/tuitions", tuitionRoutes);
 
