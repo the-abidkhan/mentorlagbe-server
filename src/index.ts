@@ -43,6 +43,12 @@ async function startServer() {
     // BetterAuth routes
     app.all("/api/auth/*splat", toNodeHandler(auth));
 
+    // Stripe Webhook raw body middleware
+    app.use(
+      "/api/payments/webhook",
+      express.raw({type: "application/json"})
+    );
+
     // JSON middleware
     app.use(express.json());
 

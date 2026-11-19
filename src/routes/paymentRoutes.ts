@@ -86,4 +86,108 @@ router.post(
   }
 );
 
+// Stripe Webhook
+router.post("/webhook", async (req, res) => {
+  const signature = req.headers["stripe-signature"];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (typeof signature !== "string" || !webhookSecret) {
+    return res.status(400).json({
+      message: "Webhook signature or secret missing.",
+    });
+  }
+
+  let event: Stripe.Event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      signature,
+      webhookSecret
+    );
+  } catch (error) {
+    console.error("Webhook signature verification failed:", error);
+
+    return res.status(400).json({
+      message: "Invalid webhook signature.",
+    });
+  }
+
+  try {
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+
+      if (session.payment_status !== "paid") {
+        return res.status(200).json({
+          message: "Payment is not completed yet.",
+        });
+      }
+
+      const userEmail = session.metadata?.userEmail;
+      const userName = session.metadata?.userName;
+      const userRole = session.metadata?.userRole;
+      const planName = session.metadata?.planName;
+
+      if (
+        !userEmail ||
+        !userName ||
+        !["student", "tutor"].includes(userRole || "") ||
+        planName !== "pro"
+      ) {
+        return res.status(400).json({
+          message: "Invalid payment metadata.",
+        });
+      }
+
+      const { users, payments } = await getCollections();
+
+      // Check duplicate payment
+      const existingPayment = await payments.findOne({
+        stripeSessionId: session.id,
+      });
+
+      if (existingPayment) {
+        return res.status(200).json({
+          message: "Payment already processed.",
+        });
+      }
+
+      // Update user plan
+      await users.updateOne(
+        { email: userEmail, role: userRole },
+        { $set: { plan: "pro" } }
+      );
+
+      // Save payment information
+      await payments.insertOne({
+        userEmail,
+        userName,
+        userRole,
+        planName: "pro",
+        amount: (session.amount_total || 0) / 100,
+        currency: session.currency || "usd",
+        transactionId:
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent?.id || "",
+        stripeSessionId: session.id,
+        paymentStatus: "paid",
+        paidAt: new Date(),
+      });
+
+      console.log("Payment completed:", userEmail);
+    }
+
+    res.status(200).json({
+      received: true,
+    });
+  } catch (error) {
+    console.error("Webhook processing failed:", error);
+
+    res.status(500).json({
+      message: "Webhook processing failed.",
+    });
+  }
+});
+
 export default router;
