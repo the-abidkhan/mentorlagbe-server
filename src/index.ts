@@ -8,6 +8,7 @@ import { createAuth } from "./config/auth.js";
 import tuitionRoutes from "./routes/tuitionRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 
 dotenv.config();
 
@@ -45,12 +46,14 @@ async function startServer() {
     // JSON middleware
     app.use(express.json());
 
+    app.use("/api/tuitions", tuitionRoutes);
+
      // Application routes
     app.use("/api/applications", applicationRoutes);
 
     app.use("/api/admin", adminRoutes);
 
-    app.use("/api/tuitions", tuitionRoutes);
+    app.use("/api/payments", paymentRoutes);
 
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
