@@ -26,7 +26,7 @@ app.use(
   })
 );
 
-const PORT = process.env.PORT || 5000;
+const PORT =  Number(process.env.PORT) || 5000;
 
 app.get("/", (_req, res) => {
   res.status(200).json({
