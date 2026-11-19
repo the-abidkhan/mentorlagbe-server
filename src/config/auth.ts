@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { jwt } from "better-auth/plugins";
@@ -8,16 +9,21 @@ export async function createAuth() {
 
   return betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
-
     database: mongodbAdapter(database),
 
     emailAndPassword: {
       enabled: true,
     },
 
+    socialProviders: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      },
+    },
+
     user: {
       modelName: "users",
-
       additionalFields: {
         role: {
           type: ["student", "tutor", "admin"],
@@ -25,17 +31,14 @@ export async function createAuth() {
           defaultValue: "student",
           input: false,
         },
-
         phone: {
           type: "string",
           required: false,
         },
-
         bio: {
           type: "string",
           required: false,
         },
-
         plan: {
           type: ["free", "pro"],
           required: false,
@@ -58,4 +61,3 @@ export async function createAuth() {
     ],
   });
 }
-
