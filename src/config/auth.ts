@@ -1,3 +1,4 @@
+
 import "dotenv/config";
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
@@ -9,6 +10,7 @@ export async function createAuth() {
 
   return betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
+    trustedOrigins: ["http://localhost:3000"],
     database: mongodbAdapter(database),
 
     emailAndPassword: {
