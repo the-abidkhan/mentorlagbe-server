@@ -263,6 +263,42 @@ router.patch("/:id", verifyToken, verifyTutor, async (req: AuthRequest, res) => 
 });
 
 
+// Tutor deletes their own tuition
+router.delete(
+  "/:id",
+  verifyToken,
+  verifyTutor,
+  async (req: AuthRequest, res) => {
+    try {
+      const tuitionId = req.params.id;
+
+      if (typeof tuitionId !== "string" || !ObjectId.isValid(tuitionId)) {
+        return res.status(400).json({ message: "Invalid tuition ID." });
+      }
+
+      const { tuitions } = await getCollections();
+
+      const result = await tuitions.deleteOne({
+        _id: new ObjectId(tuitionId),
+        tutorEmail: req.user!.email,
+      });
+
+      if (result.deletedCount === 0) {
+        return res.status(404).json({
+          message: "Tuition not found or you are not authorized to delete it.",
+        });
+      }
+
+      res.status(200).json({
+        message: "Tuition deleted successfully.",
+      });
+    } catch {
+      res.status(500).json({ message: "Failed to delete tuition." });
+    }
+  }
+);
+
+
 // Admin approves or rejects a tuition
 router.patch(
   "/:id/approval",
