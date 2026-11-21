@@ -31,6 +31,27 @@ router.get("/", async (_req, res) => {
   }
 });
 
+// Get tutor's own tuitions
+router.get(
+  "/my",
+  verifyToken,
+  verifyTutor,
+  async (req: AuthRequest, res) => {
+    try {
+      const { tuitions } = await getCollections();
+
+      const result = await tuitions
+        .find({ tutorEmail: req.user!.email })
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      res.status(200).json(result);
+    } catch {
+      res.status(500).json({ message: "Failed to fetch your tuitions." });
+    }
+  }
+);
+
 // Get single tuition
 router.get("/:id", async (req, res) => {
   try {
