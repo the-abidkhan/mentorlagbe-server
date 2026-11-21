@@ -173,6 +173,96 @@ router.post("/", verifyToken, verifyTutor, async (req: AuthRequest, res) => {
   }
 });
 
+// Tutor updates their own tuition
+router.patch("/:id", verifyToken, verifyTutor, async (req: AuthRequest, res) => {
+  try {
+    const tuitionId = req.params.id;
+
+    if (typeof tuitionId !== "string" || !ObjectId.isValid(tuitionId)) {
+      return res.status(400).json({ message: "Invalid tuition ID." });
+    }
+
+    const {
+      title,
+      subject,
+      classLevel,
+      mode,
+      location,
+      monthlyFee,
+      daysPerWeek,
+      bannerImage,
+      description,
+    } = req.body;
+
+    if (
+      !title ||
+      !subject ||
+      !classLevel ||
+      !mode ||
+      !location ||
+      !monthlyFee ||
+      !daysPerWeek ||
+      !description
+    ) {
+      return res.status(400).json({
+        message: "Please provide all required fields.",
+      });
+    }
+
+    if (!["Online", "Offline"].includes(mode)) {
+      return res.status(400).json({ message: "Invalid tuition mode." });
+    }
+
+    if (
+      !Number.isFinite(Number(monthlyFee)) ||
+      Number(monthlyFee) <= 0 ||
+      !Number.isInteger(Number(daysPerWeek)) ||
+      Number(daysPerWeek) < 1 ||
+      Number(daysPerWeek) > 7
+    ) {
+      return res.status(400).json({
+        message: "Invalid monthly fee or days per week.",
+      });
+    }
+
+    const { tuitions } = await getCollections();
+
+    const result = await tuitions.updateOne(
+      {
+        _id: new ObjectId(tuitionId),
+        tutorEmail: req.user!.email,
+      },
+      {
+        $set: {
+          title,
+          subject,
+          classLevel,
+          mode,
+          location,
+          monthlyFee: Number(monthlyFee),
+          daysPerWeek: Number(daysPerWeek),
+          bannerImage: bannerImage || "",
+          description,
+          approvalStatus: "pending",
+        },
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        message: "Tuition not found or you are not authorized to edit it.",
+      });
+    }
+
+    res.status(200).json({
+      message: "Tuition updated successfully. Waiting for admin approval.",
+    });
+  } catch {
+    res.status(500).json({ message: "Failed to update tuition." });
+  }
+});
+
+
 // Admin approves or rejects a tuition
 router.patch(
   "/:id/approval",
