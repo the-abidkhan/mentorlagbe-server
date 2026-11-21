@@ -299,6 +299,60 @@ router.delete(
 );
 
 
+// Tutor activates or deactivates their own tuition
+router.patch(
+  "/:id/active",
+  verifyToken,
+  verifyTutor,
+  async (req: AuthRequest, res) => {
+    try {
+      const tuitionId = req.params.id;
+      const { isActive } = req.body;
+
+      if (typeof tuitionId !== "string" || !ObjectId.isValid(tuitionId)) {
+        return res.status(400).json({
+          message: "Invalid tuition ID.",
+        });
+      }
+
+      if (typeof isActive !== "boolean") {
+        return res.status(400).json({
+          message: "isActive must be true or false.",
+        });
+      }
+
+      const { tuitions } = await getCollections();
+
+      const result = await tuitions.updateOne(
+        {
+          _id: new ObjectId(tuitionId),
+          tutorEmail: req.user!.email,
+        },
+        {
+          $set: {
+            isActive,
+          },
+        }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).json({
+          message: "Tuition not found or you are not authorized.",
+        });
+      }
+
+      res.status(200).json({
+        message: `Tuition ${isActive ? "activated" : "deactivated"} successfully.`,
+      });
+    } catch {
+      res.status(500).json({
+        message: "Failed to update tuition status.",
+      });
+    }
+  }
+);
+
+
 // Admin approves or rejects a tuition
 router.patch(
   "/:id/approval",
