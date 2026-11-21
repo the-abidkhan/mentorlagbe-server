@@ -40,6 +40,56 @@ router.get(
   }
 );
 
+// Update user role
+router.patch(
+  "/users/:id/role",
+  verifyToken,
+  verifyAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.params.id;
+      const { role } = req.body;
+
+      if (typeof userId !== "string" || !ObjectId.isValid(userId)) {
+        return res.status(400).json({
+          message: "Invalid user ID.",
+        });
+      }
+
+      if (!["student", "tutor", "admin"].includes(role)) {
+        return res.status(400).json({
+          message: "Invalid user role.",
+        });
+      }
+
+      const { users } = await getCollections();
+
+      const result = await users.updateOne(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            role,
+          },
+        }
+      );
+
+      if (result.matchedCount === 0) {
+        return res.status(404).json({
+          message: "User not found.",
+        });
+      }
+
+      res.status(200).json({
+        message: "User role updated successfully.",
+      });
+    } catch {
+      res.status(500).json({
+        message: "Failed to update user role.",
+      });
+    }
+  }
+);
+
 // Get all tuitions
 router.get(
   "/tuitions",
@@ -154,7 +204,10 @@ router.delete(
     try {
       const applicationId = req.params.id;
 
-      if (typeof applicationId !== "string" || !ObjectId.isValid(applicationId)) {
+      if (
+        typeof applicationId !== "string" ||
+        !ObjectId.isValid(applicationId)
+      ) {
         return res.status(400).json({
           message: "Invalid application ID.",
         });
@@ -183,6 +236,29 @@ router.delete(
   }
 );
 
+// Get all transactions
+router.get(
+  "/transactions",
+  verifyToken,
+  verifyAdmin,
+  async (_req: AuthRequest, res) => {
+    try {
+      const { payments } = await getCollections();
+
+      const result = await payments
+        .find({})
+        .sort({ paidAt: -1 })
+        .toArray();
+
+      res.status(200).json(result);
+    } catch {
+      res.status(500).json({
+        message: "Failed to fetch transactions.",
+      });
+    }
+  }
+);
+
 // Get dashboard statistics
 router.get(
   "/stats",
@@ -199,17 +275,33 @@ router.get(
         totalTutors,
         totalTuitions,
         pendingTuitions,
+        approvedTuitions,
         totalApplications,
         totalPayments,
+        revenueResult,
       ] = await Promise.all([
         users.countDocuments(),
         users.countDocuments({ role: "student" }),
         users.countDocuments({ role: "tutor" }),
         tuitions.countDocuments(),
         tuitions.countDocuments({ approvalStatus: "pending" }),
+        tuitions.countDocuments({ approvalStatus: "approved" }),
         applications.countDocuments(),
         payments.countDocuments({ paymentStatus: "paid" }),
+        payments
+          .aggregate([
+            { $match: { paymentStatus: "paid" } },
+            {
+              $group: {
+                _id: null,
+                totalRevenue: { $sum: "$amount" },
+              },
+            },
+          ])
+          .toArray(),
       ]);
+
+      const totalRevenue = revenueResult[0]?.totalRevenue || 0;
 
       res.status(200).json({
         totalUsers,
@@ -217,8 +309,10 @@ router.get(
         totalTutors,
         totalTuitions,
         pendingTuitions,
+        approvedTuitions,
         totalApplications,
         totalPayments,
+        totalRevenue,
       });
     } catch {
       res.status(500).json({
