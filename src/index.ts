@@ -1,16 +1,16 @@
 
-import express from "express";
+import express, { Request, Response } from "express";
 import cors from "cors";
-import dotenv from "dotenv";
+import "dotenv/config";
 import { toNodeHandler } from "better-auth/node";
+
 import { connectDB } from "./config/db.js";
 import { createAuth } from "./config/auth.js";
+
 import tuitionRoutes from "./routes/tuitionRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
-
-dotenv.config();
 
 const app = express();
 
@@ -26,48 +26,59 @@ app.use(
   })
 );
 
-const PORT =  Number(process.env.PORT) || 5000;
-
 app.get("/", (_req, res) => {
   res.status(200).json({
     message: "MentorLagbe Server is Running!",
   });
 });
 
-async function startServer() {
+// Initialize the application only once per serverless instance
+let initialization: Promise<void> | null = null;
+
+async function initializeServer() {
+  await connectDB();
+
+  const auth = await createAuth();
+
+  // Better Auth routes
+  app.all("/api/auth/*splat", toNodeHandler(auth));
+
+  // Stripe webhook must receive the raw request body
+  app.use(
+    "/api/payments/webhook",
+    express.raw({ type: "application/json" })
+  );
+
+  // JSON middleware
+  app.use(express.json());
+
+  // API routes
+  app.use("/api/tuitions", tuitionRoutes);
+  app.use("/api/applications", applicationRoutes);
+  app.use("/api/admin", adminRoutes);
+  app.use("/api/payments", paymentRoutes);
+}
+
+export async function handler(req: Request, res: Response) {
   try {
-    await connectDB();
+    if (!initialization) {
+      initialization = initializeServer().catch((error) => {
+        initialization = null;
+        throw error;
+      });
+    }
 
-    const auth = await createAuth();
+    await initialization;
 
-    // BetterAuth routes
-    app.all("/api/auth/*splat", toNodeHandler(auth));
-
-    // Stripe Webhook raw body middleware
-    app.use(
-      "/api/payments/webhook",
-      express.raw({type: "application/json"})
-    );
-
-    // JSON middleware
-    app.use(express.json());
-
-    app.use("/api/tuitions", tuitionRoutes);
-
-     // Application routes
-    app.use("/api/applications", applicationRoutes);
-
-    app.use("/api/admin", adminRoutes);
-
-    app.use("/api/payments", paymentRoutes);
-
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
+    app(req, res);
   } catch (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
+    console.error("Server initialization failed:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
   }
 }
 
-startServer();
+export default handler;

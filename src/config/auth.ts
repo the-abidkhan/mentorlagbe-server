@@ -9,9 +9,16 @@ import { connectDB } from "./db.js";
 export async function createAuth() {
   const database = await connectDB();
 
+  const allowedOrigins = [
+    "http://localhost:3000",
+    process.env.CLIENT_URL,
+  ].filter(Boolean) as string[];
+
   return betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
-    trustedOrigins: ["http://localhost:3000"],
+
+    trustedOrigins: allowedOrigins,
+
     database: mongodbAdapter(database),
 
     emailAndPassword: {
@@ -27,6 +34,7 @@ export async function createAuth() {
 
     user: {
       modelName: "users",
+
       additionalFields: {
         role: {
           type: ["student", "tutor", "admin"],
@@ -34,14 +42,17 @@ export async function createAuth() {
           defaultValue: "student",
           input: true,
         },
+
         phone: {
           type: "string",
           required: false,
         },
+
         bio: {
           type: "string",
           required: false,
         },
+
         plan: {
           type: ["free", "pro"],
           required: false,
