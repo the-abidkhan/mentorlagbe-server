@@ -1,4 +1,4 @@
-
+import "dotenv/config";
 import express from "express";
 import Stripe from "stripe";
 import { getCollections } from "../config/db.js";
@@ -69,7 +69,7 @@ router.post(
           planName: "pro",
         },
 
-        success_url: `${process.env.CLIENT_URL}/payment-success`,
+        success_url: `${process.env.CLIENT_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.CLIENT_URL}/payment-cancel`,
       });
 
@@ -77,10 +77,74 @@ router.post(
         checkoutUrl: session.url,
       });
     } catch (error) {
-      console.error(error);
+      console.error("Checkout session error:", error);
 
       res.status(500).json({
         message: "Failed to create checkout session.",
+      });
+    }
+  }
+);
+
+// Verify Stripe Checkout Session
+router.get(
+  "/verify-session",
+  verifyToken,
+  async (req: AuthRequest, res) => {
+    try {
+      const sessionId = req.query.session_id;
+
+      if (typeof sessionId !== "string" || !sessionId) {
+        return res.status(400).json({
+          message: "Session ID is required.",
+        });
+      }
+
+      // Get Checkout Session from Stripe
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+      // Check session owner
+      if (session.metadata?.userEmail !== req.user!.email) {
+        return res.status(403).json({
+          message: "You are not allowed to access this payment.",
+        });
+      }
+
+      // Check payment status
+      if (
+        session.payment_status !== "paid" ||
+        session.metadata?.planName !== "pro"
+      ) {
+        return res.status(200).json({
+          success: false,
+          message: "Payment is not completed yet.",
+          planActivated: false,
+        });
+      }
+
+      const { users, payments } = await getCollections();
+
+      // Check whether webhook processed the payment
+      const existingPayment = await payments.findOne({
+        stripeSessionId: session.id,
+      });
+
+      const user = await users.findOne({
+        email: req.user!.email,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Payment completed successfully.",
+        paymentProcessed: !!existingPayment,
+        planActivated: user?.plan === "pro",
+        plan: user?.plan || "free",
+      });
+    } catch (error) {
+      console.error("Payment verification error:", error);
+
+      res.status(500).json({
+        message: "Failed to verify payment.",
       });
     }
   }
