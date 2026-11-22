@@ -1,6 +1,5 @@
 import "dotenv/config";
 import { betterAuth } from "better-auth";
-import { APIError } from "better-auth/api";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { jwt } from "better-auth/plugins";
 import { connectDB } from "./db.js";
@@ -87,13 +86,10 @@ export async function createAuth() {
       user: {
         create: {
           before: async (user) => {
-            const role = user.role || "student";
-
-            if (role !== "student" && role !== "tutor") {
-              throw new APIError("BAD_REQUEST", {
-                message: "Invalid role selection.",
-              });
-            }
+            const role =
+              user.role === "student" || user.role === "tutor"
+                ? user.role
+                : "student";
 
             return {
               data: {
