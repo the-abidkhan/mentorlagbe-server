@@ -36,7 +36,7 @@ router.post(
       const tuition = await tuitions.findOne({
         _id: new ObjectId(tuitionId),
         approvalStatus: "approved",
-        status: "active",
+        isActive: true,
       });
 
       if (!tuition) {
