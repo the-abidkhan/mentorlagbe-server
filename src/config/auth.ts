@@ -1,3 +1,4 @@
+
 import "dotenv/config";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
@@ -29,6 +30,14 @@ export async function createAuth() {
         sameSite: isProd ? "none" : "lax",
         secure: isProd,
         httpOnly: true,
+      },
+    },
+
+    // Google account linking
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["google"],
       },
     },
 

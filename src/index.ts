@@ -1,3 +1,4 @@
+
 import express, { Request, Response } from "express";
 import cors from "cors";
 import "dotenv/config";
@@ -20,34 +21,28 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
 ].filter(Boolean) as string[];
 
+// CORS configuration
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-
-      const isAllowed =
-        allowedOrigins.includes(origin) ||
-        /^https:\/\/mentorlagbe-client-[a-z0-9-]+-theabidkhan\.vercel\.app$/.test(
-          origin
-        );
-
-      if (isAllowed) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
       }
+
+      callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })
 );
 
+// Server health check
 app.get("/", (_req, res) => {
   res.status(200).json({
     message: "MentorLagbe Server is Running!",
   });
 });
 
-// Initialize the application only once per serverless instance
+// Initialize only once per serverless instance
 let initialization: Promise<void> | null = null;
 
 async function initializeServer() {
@@ -58,7 +53,7 @@ async function initializeServer() {
   // Better Auth routes
   app.all("/api/auth/*splat", toNodeHandler(auth));
 
-  // Stripe webhook must receive the raw request body
+  // Stripe webhook raw body middleware
   app.use(
     "/api/payments/webhook",
     express.raw({ type: "application/json" })
@@ -74,6 +69,7 @@ async function initializeServer() {
   app.use("/api/payments", paymentRoutes);
 }
 
+// Vercel serverless handler
 export async function handler(req: Request, res: Response) {
   try {
     if (!initialization) {
@@ -97,3 +93,18 @@ export async function handler(req: Request, res: Response) {
 }
 
 export default handler;
+
+// Local development server
+if (!process.env.VERCEL) {
+  initializeServer()
+    .then(() => {
+      const PORT = Number(process.env.PORT) || 5000;
+
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.error("Failed to start server:", error);
+    });
+}
