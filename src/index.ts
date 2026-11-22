@@ -1,4 +1,3 @@
-
 import express, { Request, Response } from "express";
 import cors from "cors";
 import "dotenv/config";
@@ -16,12 +15,28 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:3000",
+  "https://mentorlagbe-client-ebon.vercel.app",
+  "https://mentorlagbe-client-gdz6fwzdj-theabidkhan.vercel.app",
   process.env.CLIENT_URL,
 ].filter(Boolean) as string[];
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        /^https:\/\/mentorlagbe-client-[a-z0-9-]+-theabidkhan\.vercel\.app$/.test(
+          origin
+        );
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
