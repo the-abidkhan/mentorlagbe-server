@@ -15,12 +15,22 @@ export async function createAuth() {
     process.env.CLIENT_URL,
   ].filter(Boolean) as string[];
 
+  const isProd = process.env.NODE_ENV === "production";
+
   return betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
 
     trustedOrigins: allowedOrigins,
 
     database: mongodbAdapter(database),
+
+    advanced: {
+      defaultCookieAttributes: {
+        sameSite: isProd ? "none" : "lax",
+        secure: isProd,
+        httpOnly: true,
+      },
+    },
 
     emailAndPassword: {
       enabled: true,
