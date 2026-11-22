@@ -11,7 +11,8 @@ const seedTuitions = [
     location: "Dhanmondi, Dhaka",
     monthlyFee: 5000,
     daysPerWeek: 4,
-    bannerImage: "",
+    bannerImage:
+      "https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&w=1200&q=80",
     description:
       "Looking for an experienced tutor to teach Physics with proper concept building and regular practice.",
     tutorName: "Demo Tutor",
@@ -25,7 +26,8 @@ const seedTuitions = [
     location: "Online",
     monthlyFee: 4000,
     daysPerWeek: 3,
-    bannerImage: "",
+    bannerImage:
+      "https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=1200&q=80",
     description:
       "Need a Mathematics tutor for regular online classes with problem-solving sessions.",
     tutorName: "Demo Tutor",
@@ -39,7 +41,8 @@ const seedTuitions = [
     location: "Uttara, Dhaka",
     monthlyFee: 6000,
     daysPerWeek: 4,
-    bannerImage: "",
+    bannerImage:
+      "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80",
     description:
       "Looking for an English tutor to improve grammar, writing and overall communication skills.",
     tutorName: "Demo Tutor",
@@ -53,7 +56,8 @@ const seedTuitions = [
     location: "Mirpur, Dhaka",
     monthlyFee: 4500,
     daysPerWeek: 3,
-    bannerImage: "",
+    bannerImage:
+      "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=1200&q=80",
     description:
       "Need a Chemistry tutor for SSC preparation with chapter-wise lessons and exam practice.",
     tutorName: "Demo Tutor",
@@ -67,7 +71,8 @@ const seedTuitions = [
     location: "Online",
     monthlyFee: 5000,
     daysPerWeek: 4,
-    bannerImage: "",
+    bannerImage:
+      "https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&w=1200&q=80",
     description:
       "Looking for a tutor to explain Biology concepts and help with regular revision.",
     tutorName: "Demo Tutor",
@@ -81,7 +86,8 @@ const seedTuitions = [
     location: "Online",
     monthlyFee: 3500,
     daysPerWeek: 3,
-    bannerImage: "",
+    bannerImage:
+      "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
     description:
       "Need an ICT tutor for programming basics, theory and practical preparation.",
     tutorName: "Demo Tutor",
@@ -95,7 +101,8 @@ const seedTuitions = [
     location: "Bashundhara, Dhaka",
     monthlyFee: 4000,
     daysPerWeek: 4,
-    bannerImage: "",
+    bannerImage:
+      "https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=1200&q=80",
     description:
       "Looking for a Mathematics tutor to help a Class 8 student improve problem-solving skills.",
     tutorName: "Demo Tutor",
@@ -109,7 +116,8 @@ const seedTuitions = [
     location: "Online",
     monthlyFee: 4000,
     daysPerWeek: 3,
-    bannerImage: "",
+    bannerImage:
+      "https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&w=1200&q=80",
     description:
       "Need an online Physics tutor for regular lessons and preparation for school examinations.",
     tutorName: "Demo Tutor",
@@ -123,7 +131,8 @@ const seedTuitions = [
     location: "Mohammadpur, Dhaka",
     monthlyFee: 5500,
     daysPerWeek: 4,
-    bannerImage: "",
+    bannerImage:
+      "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=1200&q=80",
     description:
       "Looking for an experienced Chemistry tutor for HSC topics and problem-solving practice.",
     tutorName: "Demo Tutor",
@@ -137,7 +146,8 @@ const seedTuitions = [
     location: "Jatrabari, Dhaka",
     monthlyFee: 3000,
     daysPerWeek: 3,
-    bannerImage: "",
+    bannerImage:
+      "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1200&q=80",
     description:
       "Need an English tutor to help with grammar, reading, writing and school lessons.",
     tutorName: "Demo Tutor",
@@ -156,27 +166,36 @@ async function seedDatabase() {
 
     const { tuitions } = await getCollections();
 
-    const existingTuitions = await tuitions
-      .find({ tutorEmail: "demo.tutor@example.com" })
-      .project<{ title: string }>({ title: 1 })
-      .toArray();
+    let insertedCount = 0;
+    let updatedCount = 0;
 
-    const existingTitles = new Set(
-      existingTuitions.map((tuition) => tuition.title)
-    );
+    for (const tuition of seedTuitions) {
+      const existingTuition = await tuitions.findOne({
+        title: tuition.title,
+        tutorEmail: tuition.tutorEmail,
+      });
 
-    const newTuitions = seedTuitions.filter(
-      (tuition) => !existingTitles.has(tuition.title)
-    );
+      if (existingTuition) {
+        if (!existingTuition.bannerImage) {
+          await tuitions.updateOne(
+            { _id: existingTuition._id },
+            {
+              $set: {
+                bannerImage: tuition.bannerImage,
+              },
+            }
+          );
 
-    if (newTuitions.length === 0) {
-      console.log("All demo tuitions already exist. Nothing to insert.");
-      return;
+          updatedCount++;
+        }
+      } else {
+        await tuitions.insertOne(tuition);
+        insertedCount++;
+      }
     }
 
-    const result = await tuitions.insertMany(newTuitions);
-
-    console.log(`${result.insertedCount} new demo tuitions inserted.`);
+    console.log(`${insertedCount} new demo tuitions inserted.`);
+    console.log(`${updatedCount} existing demo tuitions updated.`);
     console.log("Seed process completed.");
   } catch (error) {
     console.error("Database seeding failed:", error);
