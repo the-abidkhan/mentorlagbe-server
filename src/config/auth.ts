@@ -1,4 +1,3 @@
-
 import "dotenv/config";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
@@ -9,11 +8,14 @@ import { connectDB } from "./db.js";
 export async function createAuth() {
   const database = await connectDB();
 
+  const clientUrl =
+    process.env.CLIENT_URL || "https://mentorlagbe-client-ebon.vercel.app";
+
   const allowedOrigins = [
     "http://localhost:3000",
     "https://mentorlagbe-client-ebon.vercel.app",
     "https://mentorlagbe-client-gdz6fwzdj-theabidkhan.vercel.app",
-    process.env.CLIENT_URL,
+    clientUrl,
   ].filter(Boolean) as string[];
 
   const isProd = process.env.NODE_ENV === "production";
@@ -33,7 +35,10 @@ export async function createAuth() {
       },
     },
 
-    // Google account linking
+    onAPIError: {
+      errorURL: `${clientUrl}/login`,
+    },
+
     account: {
       accountLinking: {
         enabled: true,
@@ -54,7 +59,6 @@ export async function createAuth() {
 
     user: {
       modelName: "users",
-
       additionalFields: {
         role: {
           type: ["student", "tutor", "admin"],
@@ -62,17 +66,14 @@ export async function createAuth() {
           defaultValue: "student",
           input: true,
         },
-
         phone: {
           type: "string",
           required: false,
         },
-
         bio: {
           type: "string",
           required: false,
         },
-
         plan: {
           type: ["free", "pro"],
           required: false,
@@ -86,14 +87,19 @@ export async function createAuth() {
       user: {
         create: {
           before: async (user) => {
-            if (user.role !== "student" && user.role !== "tutor") {
+            const role = user.role || "student";
+
+            if (role !== "student" && role !== "tutor") {
               throw new APIError("BAD_REQUEST", {
                 message: "Invalid role selection.",
               });
             }
 
             return {
-              data: user,
+              data: {
+                ...user,
+                role,
+              },
             };
           },
         },
