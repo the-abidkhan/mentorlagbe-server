@@ -1,4 +1,3 @@
-
 import "dotenv/config";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
@@ -11,6 +10,8 @@ export async function createAuth() {
 
   const allowedOrigins = [
     "http://localhost:3000",
+    "https://mentorlagbe-client-ebon.vercel.app",
+    "https://mentorlagbe-client-gdz6fwzdj-theabidkhan.vercel.app",
     process.env.CLIENT_URL,
   ].filter(Boolean) as string[];
 
