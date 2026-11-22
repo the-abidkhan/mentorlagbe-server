@@ -12,22 +12,99 @@ import { Tuition } from "../types/index.js";
 
 const router = express.Router();
 
-// Get all approved and active tuitions
-router.get("/", async (_req, res) => {
+// Get all approved and active tuitions with search and filters
+router.get("/", async (req, res) => {
   try {
     const { tuitions } = await getCollections();
 
+    const search =
+      typeof req.query.search === "string"
+        ? req.query.search.trim()
+        : "";
+
+    const subject =
+      typeof req.query.subject === "string"
+        ? req.query.subject.trim()
+        : "";
+
+    const classLevel =
+      typeof req.query.classLevel === "string"
+        ? req.query.classLevel.trim()
+        : "";
+
+    const mode =
+      typeof req.query.mode === "string"
+        ? req.query.mode.trim()
+        : "";
+
+    if (mode && !["Online", "Offline"].includes(mode)) {
+      return res.status(400).json({
+        message: "Invalid tuition mode.",
+      });
+    }
+
+    // Only approved and active tuitions
+    const filter: any = {
+      approvalStatus: "approved",
+      isActive: true,
+    };
+
+    // Search by partial title or subject
+    if (search) {
+      const escapedSearch = search.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
+
+      const searchRegex = new RegExp(escapedSearch, "i");
+
+      filter.$or = [
+        { title: searchRegex },
+        { subject: searchRegex },
+      ];
+    }
+
+    // Filter by subject
+    if (subject) {
+      const escapedSubject = subject.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
+
+      filter.subject = new RegExp(
+        `^${escapedSubject}$`,
+        "i"
+      );
+    }
+
+    // Filter by class level
+    if (classLevel) {
+      const escapedClassLevel = classLevel.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
+
+      filter.classLevel = new RegExp(
+        `^${escapedClassLevel}$`,
+        "i"
+      );
+    }
+
+    // Filter by mode
+    if (mode) {
+      filter.mode = mode;
+    }
+
     const result = await tuitions
-      .find({
-        approvalStatus: "approved",
-        isActive: true,
-      })
+      .find(filter)
       .sort({ createdAt: -1 })
       .toArray();
 
     res.status(200).json(result);
   } catch {
-    res.status(500).json({ message: "Failed to fetch tuitions." });
+    res.status(500).json({
+      message: "Failed to fetch tuitions.",
+    });
   }
 });
 
@@ -47,7 +124,9 @@ router.get(
 
       res.status(200).json(result);
     } catch {
-      res.status(500).json({ message: "Failed to fetch your tuitions." });
+      res.status(500).json({
+        message: "Failed to fetch your tuitions.",
+      });
     }
   }
 );
@@ -56,7 +135,9 @@ router.get(
 router.get("/:id", async (req, res) => {
   try {
     if (!ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: "Invalid tuition ID." });
+      return res.status(400).json({
+        message: "Invalid tuition ID.",
+      });
     }
 
     const { tuitions } = await getCollections();
@@ -68,12 +149,16 @@ router.get("/:id", async (req, res) => {
     });
 
     if (!tuition) {
-      return res.status(404).json({ message: "Tuition not found." });
+      return res.status(404).json({
+        message: "Tuition not found.",
+      });
     }
 
     res.status(200).json(tuition);
   } catch {
-    res.status(500).json({ message: "Failed to fetch tuition." });
+    res.status(500).json({
+      message: "Failed to fetch tuition.",
+    });
   }
 });
 
@@ -108,7 +193,9 @@ router.post("/", verifyToken, verifyTutor, async (req: AuthRequest, res) => {
     }
 
     if (!["Online", "Offline"].includes(mode)) {
-      return res.status(400).json({ message: "Invalid tuition mode." });
+      return res.status(400).json({
+        message: "Invalid tuition mode.",
+      });
     }
 
     if (
@@ -125,10 +212,14 @@ router.post("/", verifyToken, verifyTutor, async (req: AuthRequest, res) => {
 
     const { users, tuitions } = await getCollections();
 
-    const user = await users.findOne({ email: req.user!.email });
+    const user = await users.findOne({
+      email: req.user!.email,
+    });
 
     if (!user) {
-      return res.status(404).json({ message: "Tutor not found." });
+      return res.status(404).json({
+        message: "Tutor not found.",
+      });
     }
 
     const plan = user.plan || "free";
@@ -169,7 +260,9 @@ router.post("/", verifyToken, verifyTutor, async (req: AuthRequest, res) => {
       tuitionId: result.insertedId,
     });
   } catch {
-    res.status(500).json({ message: "Failed to create tuition." });
+    res.status(500).json({
+      message: "Failed to create tuition.",
+    });
   }
 });
 
@@ -179,7 +272,9 @@ router.patch("/:id", verifyToken, verifyTutor, async (req: AuthRequest, res) => 
     const tuitionId = req.params.id;
 
     if (typeof tuitionId !== "string" || !ObjectId.isValid(tuitionId)) {
-      return res.status(400).json({ message: "Invalid tuition ID." });
+      return res.status(400).json({
+        message: "Invalid tuition ID.",
+      });
     }
 
     const {
@@ -210,7 +305,9 @@ router.patch("/:id", verifyToken, verifyTutor, async (req: AuthRequest, res) => 
     }
 
     if (!["Online", "Offline"].includes(mode)) {
-      return res.status(400).json({ message: "Invalid tuition mode." });
+      return res.status(400).json({
+        message: "Invalid tuition mode.",
+      });
     }
 
     if (
@@ -258,10 +355,11 @@ router.patch("/:id", verifyToken, verifyTutor, async (req: AuthRequest, res) => 
       message: "Tuition updated successfully. Waiting for admin approval.",
     });
   } catch {
-    res.status(500).json({ message: "Failed to update tuition." });
+    res.status(500).json({
+      message: "Failed to update tuition.",
+    });
   }
 });
-
 
 // Tutor deletes their own tuition
 router.delete(
@@ -273,7 +371,9 @@ router.delete(
       const tuitionId = req.params.id;
 
       if (typeof tuitionId !== "string" || !ObjectId.isValid(tuitionId)) {
-        return res.status(400).json({ message: "Invalid tuition ID." });
+        return res.status(400).json({
+          message: "Invalid tuition ID.",
+        });
       }
 
       const { tuitions } = await getCollections();
@@ -293,11 +393,12 @@ router.delete(
         message: "Tuition deleted successfully.",
       });
     } catch {
-      res.status(500).json({ message: "Failed to delete tuition." });
+      res.status(500).json({
+        message: "Failed to delete tuition.",
+      });
     }
   }
 );
-
 
 // Tutor activates or deactivates their own tuition
 router.patch(
@@ -352,7 +453,6 @@ router.patch(
   }
 );
 
-
 // Admin approves or rejects a tuition
 router.patch(
   "/:id/approval",
@@ -363,7 +463,9 @@ router.patch(
       const tuitionId = req.params.id;
 
       if (typeof tuitionId !== "string" || !ObjectId.isValid(tuitionId)) {
-        return res.status(400).json({ message: "Invalid tuition ID." });
+        return res.status(400).json({
+          message: "Invalid tuition ID.",
+        });
       }
 
       const { approvalStatus } = req.body;
@@ -377,19 +479,29 @@ router.patch(
       const { tuitions } = await getCollections();
 
       const result = await tuitions.updateOne(
-        { _id: new ObjectId(tuitionId) },
-        { $set: { approvalStatus } }
+        {
+          _id: new ObjectId(tuitionId),
+        },
+        {
+          $set: {
+            approvalStatus,
+          },
+        }
       );
 
       if (result.matchedCount === 0) {
-        return res.status(404).json({ message: "Tuition not found." });
+        return res.status(404).json({
+          message: "Tuition not found.",
+        });
       }
 
       res.status(200).json({
         message: `Tuition ${approvalStatus} successfully.`,
       });
     } catch {
-      res.status(500).json({ message: "Failed to update tuition status." });
+      res.status(500).json({
+        message: "Failed to update tuition approval status.",
+      });
     }
   }
 );
