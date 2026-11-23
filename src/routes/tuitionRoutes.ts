@@ -13,6 +13,42 @@ import { Tuition } from "../types/index.js";
 
 const router = express.Router();
 
+// Add tutor's plan to a list of tuitions
+const addTutorPlans = async (tuitionsList: any[]) => {
+  const { users } = await getCollections();
+
+  const tutorEmails = [
+    ...new Set(
+      tuitionsList
+        .map((tuition) => tuition.tutorEmail)
+        .filter((email) => typeof email === "string")
+    ),
+  ];
+
+  if (tutorEmails.length === 0) {
+    return tuitionsList.map((tuition) => ({
+      ...tuition,
+      tutorPlan: "free",
+    }));
+  }
+
+  const tutors = await users
+    .find(
+      { email: { $in: tutorEmails } },
+      { projection: { email: 1, plan: 1 } }
+    )
+    .toArray();
+
+  const tutorPlans = new Map(
+    tutors.map((tutor) => [tutor.email, tutor.plan || "free"])
+  );
+
+  return tuitionsList.map((tuition) => ({
+    ...tuition,
+    tutorPlan: tutorPlans.get(tuition.tutorEmail) || "free",
+  }));
+};
+
 // Get all approved and active tuitions with search and filters
 router.get("/", async (req, res) => {
   try {
@@ -57,7 +93,10 @@ router.get("/", async (req, res) => {
     }
 
     if (classLevel) {
-      const escapedClassLevel = classLevel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const escapedClassLevel = classLevel.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&"
+      );
       filter.classLevel = new RegExp(`^${escapedClassLevel}$`, "i");
     }
 
@@ -70,7 +109,9 @@ router.get("/", async (req, res) => {
       .sort({ createdAt: -1 })
       .toArray();
 
-    res.status(200).json(result);
+    const updatedTuitions = await addTutorPlans(result);
+
+    res.status(200).json(updatedTuitions);
   } catch {
     res.status(500).json({ message: "Failed to fetch tuitions." });
   }
@@ -117,7 +158,9 @@ router.get(
         )
         .filter(Boolean);
 
-      res.status(200).json(orderedTuitions);
+      const updatedTuitions = await addTutorPlans(orderedTuitions);
+
+      res.status(200).json(updatedTuitions);
     } catch {
       res.status(500).json({ message: "Failed to fetch saved tuitions." });
     }
@@ -203,17 +246,13 @@ router.post(
 
       if (plan !== "pro") {
         updateFilter.$expr = {
-          $lt: [
-            { $size: { $ifNull: ["$savedTuitionIds", []] } },
-            5,
-          ],
+          $lt: [{ $size: { $ifNull: ["$savedTuitionIds", []] } }, 5],
         };
       }
 
-      const result = await users.updateOne(
-        updateFilter,
-        { $addToSet: { savedTuitionIds: tuitionId } }
-      );
+      const result = await users.updateOne(updateFilter, {
+        $addToSet: { savedTuitionIds: tuitionId },
+      });
 
       if (result.matchedCount === 0) {
         return res.status(403).json({
@@ -277,7 +316,7 @@ router.get("/:id", async (req, res) => {
       return res.status(400).json({ message: "Invalid tuition ID." });
     }
 
-    const { tuitions } = await getCollections();
+    const { users, tuitions } = await getCollections();
 
     const tuition = await tuitions.findOne({
       _id: new ObjectId(req.params.id),
@@ -289,7 +328,17 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ message: "Tuition not found." });
     }
 
-    res.status(200).json(tuition);
+    const tutor = await users.findOne(
+      { email: tuition.tutorEmail },
+      { projection: { plan: 1 } }
+    );
+
+    const updatedTuition = {
+      ...tuition,
+      tutorPlan: tutor?.plan || "free",
+    };
+
+    res.status(200).json(updatedTuition);
   } catch {
     res.status(500).json({ message: "Failed to fetch tuition." });
   }
